@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "flutter-errand-buddy",
+  "private_key_id": "caeaa7bb1f01a7b238e22f03ffe909491567f98e",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDPj9eQNxo8yoWa\np4rANnmfsKN0HXwhkjGCvKl2yIEw91TQKrCKxpLJCdQIXcchsAcnhEO9RP5Sc3QB\n+qK4l+yd2l+0RKuqqArvrNAbMC/7twtlaV6N+PQrlvPAZJZSkYuFf9gVLAr2EM+s\n6Y8kjjU6goR+wVAXL2MN46Ze6bhlJ+12w+iMKhaUp7wPY4UCu9RfWrN7pbDETPYO\nikbxwzUR9fwl0tRmkqMNwTfgfyy1aHtnF0uYSMuGHsgJR8JBvy/YQqBvh1UF5spI\n3iRF9ihnzTmlNriDIbCVrO4DyoJN5CMz3TNGXV4f0AnhjoioQ0dqBwoYuFa3yETc\ncOF5SdUHAgMBAAECggEATj/ZMYpEfvSOx84v9eTTl0tdY9IV0QYvWi1L6fcPFWm4\n9L2TTs4r2lS1Ne48u0uEdvZbH0iaZHUYIALgQ50q3BvOhsR4v16YuOC6l/VjsY7B\nYhsGRZm8W46OGFMThM9P/SVETj8LZtbRpEts5ogiMwuvbaXtTsBTpJHVT+Tm2mMz\nv+I+gWgjPmEBbGMC/5rF81sjvc3DshIqjUFWxCYtU3lExE49DwFIT0VAEie2Hf55\n4o+mCUwnryXZ90MydUouc+wYRLVc1SGRZU84fpWxm2jJBunQ70XjhzW8ZEQi3Hkj\n+Lf1KhB6UHxitYviVQbVpTNdFTNoqjdwuzh5VkytKQKBgQD5YForwghQk4lY9OjE\nj8F6mmvar/lzzxcgY9zWy53tJvyZ+ZeYkLirz+UuRYkzi5ROVxm9+8RuAbxatT9Y\nDrzqQPCjy7QWAiSDuMhOKDn1v4cHHyz6hAgqBUp1LtGFeYVLsRjD/omtAz4KmaQL\nhcklTKBvNup7c4VU8ifeo10kfQKBgQDVEyuDVCO8Ql9YUs9j7OyNyEdfu7Cy32lI\nd5DPKIeDRZQo/g+Odx0AQr6LmyZL1Hm7eDs33v55mpVfgUJEAIAn1Pxg83eNXNzz\nbIdhCLBqOYGi6s39Rdlz3E9+dUolvZXt0gh1b16vw9aL4uVsXuyJitaT/wdVMYwx\nbHbS1V1q0wKBgDKvKqSKIzZ9RgUWgdixfxl0GUexTHoFNSYYJeJiMA7rRZvl5rHT\neDUzY9kruN8JF3N0sH60lQ/mummVPPKgzDSwTjh8RnXSqak7/TolYuJXsxH3fCTO\ngPpJaQC4K019jWH89JOhQEoxxoJRB85vupoiINl5x96fdBH3xbKycVPhAoGACwwx\nZ1/Hco1mcCfrBN1V7owB117d7IhU5yL76SHK1O2Ynv99Qv++CzNqucZTl/7uSOAV\nAfKX8yomsIr9KpV0D5ylcUluW3ADLMPlyQwwSXGt3Qqbn5QtkCpOHNpr+8T2rxwC\nwEQD/s0CpMIg7xuE3CTMt2Ozt6EYCb/78TaK320CgYEArmTiGy48e78nbYqylhPI\nLBNPMj43Q2GIGydfQ1RRQyvftIF03wHDDYrcRlMIGAKG/lP/5F6P7uiYp9LG7yf9\nJnzGMx8BrZnVAlWPIK1GmJNLG9PBAscgFCdb31p6pv7V4STgJLf0OAlwbcsmpt/B\nhIj8QbrxPcaFQ9v+rSf4ED8=\n-----END PRIVATE KEY-----\n",
+  "client_email": "flutter-buddy-app-dave2004@flutter-errand-buddy.iam.gserviceaccount.com",
+  "client_id": "103634768527350807373",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/flutter-buddy-app-dave2004%40flutter-errand-buddy.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
