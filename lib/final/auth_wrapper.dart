@@ -52,7 +52,7 @@ class AuthWrapper extends StatelessWidget {
 
             if (role == 'worker') {
               return isProfileComplete
-                  ? WorkerHomeScreen()
+                  ? WorkerHomePage()
                   : Step1BasicInfoScreen(role: '',); // or ResumeSignupScreen
             } else if (role == 'customer') {
               return isProfileComplete

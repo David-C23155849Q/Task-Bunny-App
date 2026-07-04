@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../pages/trial/main.dart';
+import '../final/main.dart';
 import '../final/about_us_page.dart';
 import 'how_it_works_screen.dart';
 

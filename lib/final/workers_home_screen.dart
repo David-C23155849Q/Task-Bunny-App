@@ -9,14 +9,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'workers_home_tab.dart';
 
-class WorkerHomeScreen extends StatefulWidget {
-  const WorkerHomeScreen({super.key});
+class WorkerHomePage extends StatefulWidget {
+  const WorkerHomePage({super.key});
 
   @override
-  State<WorkerHomeScreen> createState() => _WorkerHomeScreenState();
+  State<WorkerHomePage> createState() => _WorkerHomePageState();
 }
 
-class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
+class _WorkerHomePageState extends State<WorkerHomePage> {
   final _auth = FirebaseAuth.instance;
   final _firestore = FirebaseFirestore.instance;
 
@@ -24,7 +24,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
   bool isOnline = false;
 
   List<Widget> get _tabs => [
-    const HomeTab(),
+    const WorkerHomePage(),
     const EarningsTab(),
     const TaskOffersScreen(taskId: '',),
     WorkerProfileViewScreen(uid: FirebaseAuth.instance.currentUser?.uid ?? ''),

@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "633823231381",
-    "project_id": "tasklink-54de8",
-    "storage_bucket": "tasklink-54de8.firebasestorage.app"
+    "project_number": "470118082580",
+    "project_id": "taskbunny-app",
+    "storage_bucket": "taskbunny-app.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:633823231381:android:9ba330061115d753f04a9c",
+        "mobilesdk_app_id": "1:470118082580:android:26706f17f8a32fb6721f01",
         "android_client_info": {
-          "package_name": "com.david.errandapp"
+          "package_name": "com.task.bunnyapp"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBnFzN4DEHSnEL1YkGbAL6LTrdW0E_vH4M"
+          "current_key": "AIzaSyBdWZ4HseAn_Vo5ihhGNstreSamxQFPSVg"
         }
       ],
       "services": {

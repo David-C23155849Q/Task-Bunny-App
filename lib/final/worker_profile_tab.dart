@@ -5,8 +5,25 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+/// ui helper
+extension UIComponents on State {
+  Widget buildSection(String title, List<Widget> children) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black54)),
+        ),
+        ...children,
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+}
+
 class WorkerProfileScreen extends StatefulWidget {
-  const WorkerProfileScreen({super.key});
+  const WorkerProfileScreen({super.key, required String uid});
 
   @override
   State<WorkerProfileScreen> createState() => _WorkerProfileScreenState();
@@ -148,121 +165,66 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (isLoading) return const Scaffold(body: Center(child: CircularProgressIndicator.adaptive()));
 
     return Scaffold(
+      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         title: const Text("Edit Profile"),
-        actions: [
-          IconButton(icon: const Icon(Icons.save), onPressed: saveChanges),
-        ],
+        elevation: 0,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        actions: [IconButton(icon: const Icon(Icons.check_circle, color: Colors.blue), onPressed: saveChanges)],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Form(
           key: formKey,
           child: Column(
             children: [
-              GestureDetector(
-                onTap: pickProfileImage,
-                child: CircleAvatar(
-                  radius: 50,
-                  backgroundImage: newProfileImage != null
-                      ? FileImage(newProfileImage!)
-                      : (profileImageUrl != null ? NetworkImage(profileImageUrl!) : null) as ImageProvider?,
-                  child: newProfileImage == null && profileImageUrl == null
-                      ? const Icon(Icons.camera_alt, size: 40)
-                      : null,
+              // Profile Photo
+              Center(
+                child: Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 55,
+                      backgroundImage: newProfileImage != null
+                          ? FileImage(newProfileImage!)
+                          : (profileImageUrl != null ? NetworkImage(profileImageUrl!) : null) as ImageProvider?,
+                      child: (newProfileImage == null && profileImageUrl == null) ? const Icon(Icons.person, size: 50) : null,
+                    ),
+                    Positioned(bottom: 0, right: 0, child: CircleAvatar(backgroundColor: Colors.blue, radius: 18, child: IconButton(icon: const Icon(Icons.camera_alt, size: 18, color: Colors.white), onPressed: pickProfileImage))),
+                  ],
                 ),
               ),
-              const SizedBox(height: 20),
-
-              buildTextField("Full Name", name!, (val) => name = val),
-              buildTextField("Username", username!, (val) => username = val),
-              buildTextField("Phone", phone!, (val) => phone = val, keyboard: TextInputType.phone),
-              buildTextField("City", city!, (val) => city = val),
-              buildTextField("Bio", bio!, (val) => bio = val, maxLines: 3),
-              buildTextField("Email", email ?? '', (_) {}, readOnly: true),
-
-              const SizedBox(height: 16),
-              const Text("Categories (max 3)"),
-              Wrap(
-                spacing: 8,
-                children: allCategories.map((cat) {
-                  final selected = categories.contains(cat);
-                  return FilterChip(
-                    label: Text(cat),
-                    selected: selected,
-                    onSelected: (val) {
-                      setState(() {
-                        if (val && categories.length < 3) {
-                          categories.add(cat);
-                        } else if (!val) {
-                          categories.remove(cat);
-                        }
-                      });
-                    },
-                  );
-                }).toList(),
-              ),
-
-              const SizedBox(height: 16),
-              const Text("Resources"),
-              ...['tools', 'vehicle'].map((key) {
-                return SwitchListTile(
-                  title: Text("Has ${key[0].toUpperCase()}${key.substring(1)}"),
-                  value: resources[key] ?? false,
-                  onChanged: (val) {
-                    setState(() => resources[key] = val);
-                  },
-                );
-              }),
-
-              const SizedBox(height: 16),
-              const Text("Resource Images"),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  ...resourceImageUrls.asMap().entries.map((entry) {
-                    final i = entry.key;
-                    final url = entry.value;
-                    return Stack(
-                      children: [
-                        Image.network(url, width: 100, height: 100, fit: BoxFit.cover),
-                        Positioned(
-                          top: 0,
-                          right: 0,
-                          child: GestureDetector(
-                            onTap: () => removeResourceImage(i),
-                            child: const CircleAvatar(
-                              radius: 12,
-                              backgroundColor: Colors.red,
-                              child: Icon(Icons.close, size: 14, color: Colors.white),
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  }),
-                  ...newResourceImages.map((file) => Image.file(file, width: 100, height: 100, fit: BoxFit.cover)),
-                  if ((resourceImageUrls.length + newResourceImages.length) < 4)
-                    GestureDetector(
-                      onTap: pickResourceImage,
-                      child: Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.add_a_photo),
-                      ),
-                    ),
-                ],
-              ),
               const SizedBox(height: 30),
+
+              // Personal Info
+              buildSection("Personal Details", [
+                _modernTextField("Full Name", name ?? "", (val) => name = val),
+                _modernTextField("Username", username ?? "", (val) => username = val),
+                _modernTextField("Phone", phone ?? "", (val) => phone = val, type: TextInputType.phone),
+                _modernTextField("City", city ?? "", (val) => city = val),
+              ]),
+
+              // Categories
+              buildSection("Services Provided (Max 3)", [
+                Wrap(
+                  spacing: 8,
+                  children: allCategories.map((cat) => FilterChip(
+                    label: Text(cat),
+                    selected: categories.contains(cat),
+                    onSelected: (val) => setState(() => val && categories.length < 3 ? categories.add(cat) : categories.remove(cat)),
+                  )).toList(),
+                )
+              ]),
+
+              // Resource Images
+              buildSection("Work Samples (${resourceImageUrls.length + newResourceImages.length}/4)", [
+                _buildImageGrid(),
+              ]),
+
+              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -270,31 +232,39 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     );
   }
 
-  Widget buildTextField(
-      String label,
-      String initialValue,
-      void Function(String) onSave, {
-        bool readOnly = false,
-        TextInputType keyboard = TextInputType.text,
-        int maxLines = 1,
-      }) {
+  Widget _modernTextField(String label, String init, Function(String) onSave, {TextInputType type = TextInputType.text}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 15),
       child: TextFormField(
-        initialValue: initialValue,
-        readOnly: readOnly,
-        maxLines: maxLines,
-        keyboardType: keyboard,
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
-        ),
-        onSaved: (String? val) {
-          if (val != null) name = val;
-        },
-
+        initialValue: init,
+        keyboardType: type,
+        decoration: InputDecoration(labelText: label, filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
+        onSaved: (val) => onSave(val!),
       ),
     );
   }
 
+  Widget _buildImageGrid() {
+    return Wrap(
+      spacing: 10, runSpacing: 10,
+      children: [
+        ...resourceImageUrls.asMap().entries.map((e) => _imageBox(url: e.value, onRemove: () => removeResourceImage(e.key))),
+        ...newResourceImages.map((f) => _imageBox(file: f)),
+        if ((resourceImageUrls.length + newResourceImages.length) < 4)
+          InkWell(
+            onTap: pickResourceImage,
+            child: Container(width: 80, height: 80, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.blue)), child: const Icon(Icons.add, color: Colors.blue)),
+          )
+      ],
+    );
+  }
+
+  Widget _imageBox({String? url, File? file, VoidCallback? onRemove}) {
+    return Stack(
+      children: [
+        ClipRRect(borderRadius: BorderRadius.circular(12), child: url != null ? Image.network(url, width: 80, height: 80, fit: BoxFit.cover) : Image.file(file!, width: 80, height: 80, fit: BoxFit.cover)),
+        if (onRemove != null) Positioned(top: 0, right: 0, child: IconButton(onPressed: onRemove, icon: const Icon(Icons.cancel, color: Colors.red))),
+      ],
+    );
+  }
 }

@@ -1,181 +1,77 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:errand_app/final/worker_profile_tab.dart';
 import 'package:flutter/material.dart';
+import 'worker_profile_tab.dart';
 
 class WorkerProfileViewScreen extends StatelessWidget {
   final String uid;
-
-  const WorkerProfileViewScreen({Key? key, required this.uid})
-      : super(key: key);
-
-
+  const WorkerProfileViewScreen({Key? key, required this.uid}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    if (uid.isEmpty) {
-      return Scaffold(
-        appBar: AppBar(title: const Text("Worker Profile")),
-        body: const Center(child: Text("Invalid worker ID")),
-      );
-    }
-
-    final docRef =
-    FirebaseFirestore.instance.collection('workers').doc(uid);
-
     return Scaffold(
-      //appBar: AppBar(
-        //title: const Text("Your Profile"),
-      //  backgroundColor: Colors.blue[800],
-     // ),
+      backgroundColor: Colors.grey.shade50,
+      appBar: AppBar(
+        title: const Text("Worker Profile", style: TextStyle(fontWeight: FontWeight.bold)),
+        centerTitle: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: Colors.black,
+      ),
       body: FutureBuilder<DocumentSnapshot>(
-        future: docRef.get(),
+        future: FirebaseFirestore.instance.collection('workers').doc(uid).get(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (!snapshot.hasData || !snapshot.data!.exists) {
-            return const Center(child: Text("Worker not found"));
-          }
+          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+          if (!snapshot.hasData || !snapshot.data!.exists) return const Center(child: Text("Worker not found"));
 
           final data = snapshot.data!.data() as Map<String, dynamic>;
-
-          final profileImageUrl = data['profileImageUrl'] ?? '';
-          final username = data['username'] ?? '';
-          final name = data['name'] ?? '';
-          final city = data['city'] ?? '';
-          final bio = data['bio'] ?? '';
-          final rating = data['rating']?.toDouble() ?? 0.0;
-          final categories = List<String>.from(data['categories'] ?? []);
-          final resourceImages =
-          List<String>.from(data['resourceImageUrls'] ?? []);
-          final phone = data['phone'] ?? '';
-          final email = data['email'] ?? '';
-          final resources = Map<String, dynamic>.from(data['resources'] ?? {});
+          Uint8List? imageBytes = data['profileImageBase64'] != null ? base64Decode(data['profileImageBase64']) : null;
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Profile Picture
-                Center(
-                  child: CircleAvatar(
-                    radius: 50,
-                    backgroundImage: profileImageUrl.isNotEmpty
-                        ? NetworkImage(profileImageUrl)
-                        : null,
-                    child: profileImageUrl.isEmpty
-                        ? const Icon(Icons.person, size: 50)
-                        : null,
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Username and Name
-                Center(
+                /// Profile Header
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 15)]),
                   child: Column(
                     children: [
-                      Text(
-                        username,
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(name,
-                          style: Theme.of(context).textTheme.titleMedium),
-                      const SizedBox(height: 4),
-                      Text(city, style: Theme.of(context).textTheme.bodyMedium),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(
-                          rating.toInt(),
-                              (_) => const Icon(Icons.star,
-                              size: 18, color: Colors.amber),
-                        ),
-                      ),
+                      CircleAvatar(radius: 50, backgroundImage: imageBytes != null ? MemoryImage(imageBytes) : null, child: imageBytes == null ? const Icon(Icons.person, size: 50) : null),
+                      const SizedBox(height: 16),
+                      Text(data['username'] ?? '', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                      Text(data['name'] ?? '', style: TextStyle(color: Colors.grey.shade600, fontSize: 16)),
+                      const SizedBox(height: 12),
+                      _buildRatingRow((data['rating'] ?? 0).toDouble()),
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 24),
 
-                // Contact Info
-                Text("📞 Contact", style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 6),
-                Text("Phone: $phone"),
-                Text("Email: $email"),
+                /// Info Section
+                _buildSection("Contact Details", [
+                  _buildIconTile(Icons.phone_rounded, data['phone'] ?? "N/A"),
+                  _buildIconTile(Icons.email_rounded, data['email'] ?? "N/A"),
+                  _buildIconTile(Icons.location_on_rounded, data['city'] ?? "N/A"),
+                ]),
 
-                const SizedBox(height: 24),
+                _buildSection("About", [Text(data['bio'] ?? "No bio provided", style: TextStyle(color: Colors.grey.shade700, height: 1.5))]),
 
-                // Bio
-                Text("🧾 Bio", style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 6),
-                Text(bio, style: Theme.of(context).textTheme.bodyMedium),
+                _buildSection("Skills", [Wrap(spacing: 8, runSpacing: 8, children: List<String>.from(data['categories'] ?? []).map((c) => Chip(label: Text(c, style: const TextStyle(fontSize: 12)), backgroundColor: Colors.blue.withOpacity(0.05), side: BorderSide.none)).toList())]),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 30),
 
-                // Categories / Skills
-                Text("🛠 Skills", style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: categories
-                      .take(3)
-                      .map((cat) => Chip(label: Text(cat)))
-                      .toList(),
+                /// Action Button
+                SizedBox(
+                  width: double.infinity, height: 50,
+                  child: FilledButton(
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => WorkerProfileScreen(uid: uid))),
+                    style: FilledButton.styleFrom(backgroundColor: Colors.black87, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                    child: const Text("EDIT PROFILE", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                  ),
                 ),
-
-                const SizedBox(height: 24),
-
-                // Resources
-                if (resources.isNotEmpty) ...[
-                  Text("🧰 Resources", style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 8,
-                    children: resources.entries
-                        .where((e) => e.value == true)
-                        .map((e) => Chip(label: Text(e.key)))
-                        .toList(),
-                  ),
-                ],
-
-                const SizedBox(height: 24),
-
-                // Resource Images
-                if (resourceImages.isNotEmpty) ...[
-                  Text("📸 Resource Images",
-                      style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: resourceImages
-                        .map((url) => ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        url,
-                        width: 100,
-                        height: 100,
-                        fit: BoxFit.cover,
-                      ),
-                    ))
-                        .toList(),
-                  ),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const WorkerProfileScreen(),
-                        ),
-                      );
-                    },child:
-                  const Text("Edit Profile Info", style: TextStyle(fontSize: 16)),
-                  )
-                ],
+                const SizedBox(height: 40),
               ],
             ),
           );
@@ -183,4 +79,28 @@ class WorkerProfileViewScreen extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildSection(String title, List<Widget> children) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        const SizedBox(height: 12),
+        ...children
+      ]),
+    );
+  }
+
+  Widget _buildIconTile(IconData icon, String text) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Row(children: [Icon(icon, size: 18, color: Colors.blueAccent), const SizedBox(width: 12), Text(text)]),
+  );
+
+  Widget _buildRatingRow(double rating) => Row(
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: List.generate(5, (index) => Icon(index < rating ? Icons.star_rounded : Icons.star_border_rounded, color: Colors.amber, size: 24)),
+  );
 }

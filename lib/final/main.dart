@@ -1,53 +1,80 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:errand_app/final/login_screen.dart';
-import 'package:errand_app/final/services/notification_services.dart';
 import 'package:errand_app/final/services/tasks/task_details_screen.dart';
+
 import '../firebase_options.dart';
 
 ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.system);
 
-// ✅ Global navigator key
-final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+final GlobalKey<NavigatorState> navigatorKey =
+GlobalKey<NavigatorState>();
 
-// ✅ Background FCM handler
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
-  print("🔔 Background message: ${message.notification?.title}");
+/// Background notification handler
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  try {
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
+  } catch (_) {}
+
+  debugPrint(
+      "Background notification: ${message.notification?.title}");
 }
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  FirebaseApp app;
+
+  try {
+    if (Firebase.apps.isEmpty) {
+      app = await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      debugPrint("Firebase initialized: ${app.name}");
+    } else {
+      app = Firebase.app();
+      debugPrint("Firebase already initialized: ${app.name}");
+    }
+  } catch (e) {
+    app = Firebase.app();
+    debugPrint("Using existing Firebase app: ${app.name}");
+  }
+
+  FirebaseMessaging.onBackgroundMessage(
+      firebaseMessagingBackgroundHandler);
 
   final prefs = await SharedPreferences.getInstance();
-  final savedTheme = prefs.getString('theme') ?? 'system';
 
-  switch (savedTheme) {
-    case 'light':
+  switch (prefs.getString("theme")) {
+    case "light":
       themeNotifier.value = ThemeMode.light;
       break;
-    case 'dark':
+
+    case "dark":
       themeNotifier.value = ThemeMode.dark;
       break;
+
     default:
       themeNotifier.value = ThemeMode.system;
   }
 
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-  FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+  FirebaseMessaging.onMessageOpenedApp.listen((message) {
     final data = message.data;
-    if (data['type'] == 'task' && data['taskId'] != null) {
+
+    if (data["taskId"] != null) {
       navigatorKey.currentState?.push(
         MaterialPageRoute(
-          builder: (_) => TaskDetailsScreen(taskId: data['taskId']),
+          builder: (_) => TaskDetailsScreen(
+            taskId: data["taskId"],
+          ),
         ),
       );
     }
@@ -63,11 +90,11 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
-      builder: (context, currentMode, _) {
+      builder: (context, themeMode, child) {
         return MaterialApp(
-          navigatorKey: navigatorKey, // ✅ required for notification routing
+          navigatorKey: navigatorKey,
           debugShowCheckedModeBanner: false,
-          themeMode: currentMode,
+          themeMode: themeMode,
           theme: ThemeData(
             brightness: Brightness.light,
             primarySwatch: Colors.indigo,

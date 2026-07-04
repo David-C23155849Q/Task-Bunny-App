@@ -1,6 +1,6 @@
 import 'package:errand_app/final/workers_guide_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:errand_app/final/workers_home_screen.dart';// Create this screen
+import 'package:errand_app/final/workers_home_tab.dart';// Create this screen
 
 class SignupCompletePage extends StatelessWidget {
   final String name;

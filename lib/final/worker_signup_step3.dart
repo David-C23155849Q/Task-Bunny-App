@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:errand_app/final/signup_completed.dart';
 
 class WorkerSignupStep3 extends StatefulWidget {
@@ -38,9 +40,11 @@ class _WorkerSignupStep3State extends State<WorkerSignupStep3> {
   List<File> resourceImages = [];
   bool isLoading = false;
 
+  final picker = ImagePicker();
+
   Future<void> _pickImage(bool isProfile) async {
-    final picker = ImagePicker();
     final image = await picker.pickImage(source: ImageSource.gallery);
+
     if (image != null) {
       setState(() {
         if (isProfile) {
@@ -52,10 +56,17 @@ class _WorkerSignupStep3State extends State<WorkerSignupStep3> {
     }
   }
 
-  Future<String> _uploadImage(File imageFile, String path) async {
-    final ref = FirebaseStorage.instance.ref().child(path);
-    await ref.putFile(imageFile);
-    return await ref.getDownloadURL();
+  Future<String?> _toBase64(File file) async {
+    final compressed = await FlutterImageCompress.compressWithFile(
+      file.absolute.path,
+      quality: 40,
+      minWidth: 400,
+      minHeight: 400,
+    );
+
+    if (compressed == null) return null;
+
+    return base64Encode(compressed);
   }
 
   Future<void> _finishSignup() async {
@@ -69,19 +80,20 @@ class _WorkerSignupStep3State extends State<WorkerSignupStep3> {
     setState(() => isLoading = true);
 
     try {
-      // Upload profile image
-      final profileImageUrl = await _uploadImage(
-          profileImage!, 'workers/${widget.uid}/profile.jpg');
+      // ✅ PROFILE IMAGE → BASE64
+      final profileBase64 = await _toBase64(profileImage!);
 
-      // Upload resource images
-      List<String> resourceImageUrls = [];
-      for (int i = 0; i < resourceImages.length; i++) {
-        String url = await _uploadImage(
-            resourceImages[i], 'workers/${widget.uid}/resources/resource_$i.jpg');
-        resourceImageUrls.add(url);
+      // ✅ RESOURCE IMAGES → BASE64 LIST
+      List<String> resourceBase64List = [];
+
+      for (final img in resourceImages) {
+        final base64 = await _toBase64(img);
+        if (base64 != null) {
+          resourceBase64List.add(base64);
+        }
       }
 
-      // Save all data to Firestore
+      // ✅ SAVE EVERYTHING IN FIRESTORE
       await FirebaseFirestore.instance
           .collection('workers')
           .doc(widget.uid)
@@ -95,18 +107,22 @@ class _WorkerSignupStep3State extends State<WorkerSignupStep3> {
         'city': widget.city,
         'categories': widget.categories,
         'resources': widget.resources,
-        'profileImageUrl': profileImageUrl,
-        'resourceImageUrls': resourceImageUrls,
+
+        // ✅ IMAGES AS BASE64
+        'profileImageBase64': profileBase64,
+        'resourceImagesBase64': resourceBase64List,
+
         'createdAt': FieldValue.serverTimestamp(),
         'isProfileComplete': true,
         'role': 'worker',
 
-        // ✅ Default values
+        // defaults
         'rating': 3.0,
         'blockStatus': 'no',
       });
 
       if (!mounted) return;
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -117,9 +133,8 @@ class _WorkerSignupStep3State extends State<WorkerSignupStep3> {
         ),
       );
     } catch (e) {
-      print("Upload error: $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: ${e.toString()}")),
+        SnackBar(content: Text("Error: $e")),
       );
     } finally {
       setState(() => isLoading = false);
@@ -128,8 +143,6 @@ class _WorkerSignupStep3State extends State<WorkerSignupStep3> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     final primaryBlue = const Color(0xFF1565C0);
 
     return Scaffold(
@@ -142,77 +155,43 @@ class _WorkerSignupStep3State extends State<WorkerSignupStep3> {
           SingleChildScrollView(
             padding: const EdgeInsets.all(20),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  "Upload Your Images",
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: primaryBlue,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  "Add a profile picture and optional resource images (max 4)",
-                  style: TextStyle(
-                    color: isDark ? Colors.grey[300] : Colors.grey[700],
-                  ),
-                ),
-                const SizedBox(height: 30),
+                const SizedBox(height: 20),
 
-                // Profile Image Picker
-                Center(
-                  child: GestureDetector(
-                    onTap: () => _pickImage(true),
-                    child: CircleAvatar(
-                      radius: 50,
-                      backgroundImage:
-                      profileImage != null ? FileImage(profileImage!) : null,
-                      child: profileImage == null
-                          ? const Icon(Icons.camera_alt, size: 40)
-                          : null,
-                    ),
+                GestureDetector(
+                  onTap: () => _pickImage(true),
+                  child: CircleAvatar(
+                    radius: 50,
+                    backgroundImage: profileImage != null
+                        ? FileImage(profileImage!)
+                        : null,
+                    child: profileImage == null
+                        ? const Icon(Icons.camera_alt)
+                        : null,
                   ),
                 ),
 
                 const SizedBox(height: 30),
 
-                // Resource Images Grid
-                Text(
-                  "Resource Images (Optional)",
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 10),
                 Wrap(
                   spacing: 10,
-                  runSpacing: 10,
                   children: [
                     for (var img in resourceImages)
                       Stack(
                         children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: Image.file(
-                              img,
-                              width: 100,
-                              height: 100,
-                              fit: BoxFit.cover,
-                            ),
+                          Image.file(
+                            img,
+                            width: 100,
+                            height: 100,
+                            fit: BoxFit.cover,
                           ),
                           Positioned(
                             right: 0,
-                            top: 0,
                             child: GestureDetector(
                               onTap: () {
                                 setState(() => resourceImages.remove(img));
                               },
-                              child: const CircleAvatar(
-                                radius: 12,
-                                backgroundColor: Colors.red,
-                                child: Icon(Icons.close,
-                                    size: 14, color: Colors.white),
-                              ),
+                              child: const Icon(Icons.close, color: Colors.red),
                             ),
                           ),
                         ],
@@ -223,31 +202,18 @@ class _WorkerSignupStep3State extends State<WorkerSignupStep3> {
                         child: Container(
                           width: 100,
                           height: 100,
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.add_a_photo),
+                          color: Colors.grey[300],
+                          child: const Icon(Icons.add),
                         ),
                       ),
                   ],
                 ),
 
                 const SizedBox(height: 30),
-                Center(
-                  child: ElevatedButton.icon(
-                    onPressed: isLoading ? null : _finishSignup,
-                    icon: const Icon(Icons.check),
-                    label: const Text("Finish Signup"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryBlue,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 40, vertical: 14),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      textStyle: const TextStyle(fontSize: 16),
-                    ),
-                  ),
+
+                ElevatedButton(
+                  onPressed: isLoading ? null : _finishSignup,
+                  child: const Text("Finish Signup"),
                 ),
               ],
             ),

@@ -155,7 +155,7 @@ class _HowItWorksScreenState extends State<HowItWorksScreen> {
                   Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => HomeTab(),
+                      builder: (_) => WorkerHomeScreen(),
                     ),
                   );
                 }

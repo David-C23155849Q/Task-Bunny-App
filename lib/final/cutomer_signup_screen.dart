@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:errand_app/final/term_and_privacy_screen.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'customer_signup_complete.dart';
@@ -38,6 +40,20 @@ class _CustomerSignupScreenState extends State<CustomerSignupScreen> {
     }
   }
 
+  // image compression funcrion
+  Future<String?> _convertImageToBase64(File imageFile) async {
+    final compressedBytes = await FlutterImageCompress.compressWithFile(
+      imageFile.absolute.path,
+      minWidth: 300,
+      minHeight: 300,
+      quality: 40,
+    );
+
+    if (compressedBytes == null) return null;
+
+    return base64Encode(compressedBytes);
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (!_agreedToTerms) {
@@ -57,11 +73,10 @@ class _CustomerSignupScreenState extends State<CustomerSignupScreen> {
       );
       final uid = credential.user!.uid;
 
-      String? profileUrl;
+      String? profileImageBase64;
+
       if (_profileImage != null) {
-        final ref = FirebaseStorage.instance.ref('customers/$uid/profile.jpg');
-        await ref.putFile(_profileImage!);
-        profileUrl = await ref.getDownloadURL();
+        profileImageBase64 = await _convertImageToBase64(_profileImage!);
       }
 
       // Save to Firestore
@@ -69,7 +84,7 @@ class _CustomerSignupScreenState extends State<CustomerSignupScreen> {
         'username': _usernameController.text.trim(),
         'email': _emailController.text.trim(),
         'phone': _phoneController.text.trim(),
-        'profileImage': profileUrl,
+        'profileImage': profileImageBase64 ?? '',
         'role': widget.role,
         'createdAt': FieldValue.serverTimestamp(),
         'isProfileComplete': true,

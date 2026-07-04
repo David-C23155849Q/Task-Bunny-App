@@ -2,10 +2,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../pages/trial/main.dart';
-import '../../pages/trial/screens/services/how_it_works_page.dart';
+
 import '../how_it_works_screen.dart';
 import '../legal_screen.dart';
+import '../main.dart';
 import 'c_how_it_works_page.dart';
 import 'c_terms_and_privacy_policy_page.dart';
 

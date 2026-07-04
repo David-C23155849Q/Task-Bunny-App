@@ -1,5 +1,5 @@
-package com.example.errand_app
+package com.task.bunnyapp
 
 import io.flutter.embedding.android.FlutterActivity
 
-class MainActivity: FlutterActivity()
+class MainActivity : FlutterActivity()

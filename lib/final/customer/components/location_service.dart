@@ -1,21 +1,55 @@
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:location/location.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 
 class LocationService {
-  static Future<LatLng> getLocation() async {
-    Location location = Location();
+  /// Returns the user's current location.
+  static Future<LatLng> getCurrentLocation() async {
+    // Check if location services are enabled
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
 
-    bool _serviceEnabled = await location.serviceEnabled();
-    if (!_serviceEnabled) {
-      _serviceEnabled = await location.requestService();
+    if (!serviceEnabled) {
+      throw Exception("Location services are disabled.");
     }
 
-    PermissionStatus _permissionGranted = await location.hasPermission();
-    if (_permissionGranted == PermissionStatus.denied) {
-      _permissionGranted = await location.requestPermission();
+    // Check permissions
+    LocationPermission permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
     }
 
-    final _locationData = await location.getLocation();
-    return LatLng(_locationData.latitude!, _locationData.longitude!);
+    if (permission == LocationPermission.denied) {
+      throw Exception("Location permission denied.");
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      throw Exception(
+        "Location permissions are permanently denied. Please enable them in settings.",
+      );
+    }
+
+    final Position position = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+    );
+
+    return LatLng(
+      position.latitude,
+      position.longitude,
+    );
+  }
+
+  /// Stream of location updates (for live worker tracking)
+  static Stream<LatLng> getLocationStream() {
+    return Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.best,
+        distanceFilter: 5,
+      ),
+    ).map(
+          (position) => LatLng(
+        position.latitude,
+        position.longitude,
+      ),
+    );
   }
 }
