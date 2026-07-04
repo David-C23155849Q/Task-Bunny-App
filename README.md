@@ -1,4 +1,4 @@
-# Errand App
+# TaskBunny App
 
 A modern Flutter-based errand marketplace that connects customers with nearby workers for everyday tasks. The platform includes dedicated applications for Customers, Workers, and Administrators, powered by Firebase services.
 
