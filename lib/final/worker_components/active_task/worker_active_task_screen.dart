@@ -36,6 +36,8 @@ class _WorkerActiveTaskScreenState
   bool _initialCameraMoved = false;
   bool _mapReady = false;
 
+  int _activePanel = -1;
+
   @override
   void initState() {
     super.initState();
@@ -47,6 +49,7 @@ class _WorkerActiveTaskScreenState
     controller.addListener(_controllerListener);
 
     controller.initialize();
+
   }
 
   void _controllerListener() {
@@ -72,6 +75,82 @@ class _WorkerActiveTaskScreenState
         controller.workerLocation!,
         mapController.camera.zoom,
       );
+    }
+  }
+
+  Widget _iconButton(IconData icon, int index) {
+    final isActive = _activePanel == index;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _activePanel = isActive ? -1 : index;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isActive ? Colors.blue : Colors.grey.shade200,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          icon,
+          color: isActive ? Colors.white : Colors.black87,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActivePanel() {
+    switch (_activePanel) {
+      case 0:
+        return WorkerCustomerCard(
+          task: controller.task!,
+          distanceKm: controller.distanceKm,
+          etaMinutes: controller.etaMinutes,
+        );
+
+      case 1:
+        return WorkerTaskStatusWidget(
+          controller: controller,
+        );
+
+      case 2:
+        return WorkerNavigationBar(
+          distanceKm: controller.distanceKm,
+          etaMinutes: controller.etaMinutes,
+          onRecenter: () {
+            controller.followingWorker = true;
+            mapController.move(controller.workerLocation!, 18);
+          },
+          onCancel: () async {
+            final confirm = await showDialog<bool>(
+              context: context,
+              builder: (_) => AlertDialog(
+                title: const Text("Exit Task"),
+                content: const Text("Are you sure you want to leave this task?"),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text("No"),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text("Yes"),
+                  ),
+                ],
+              ),
+            );
+
+            if (confirm == true) {
+              await controller.cancelTask();
+              if (context.mounted) Navigator.pop(context);
+            }
+          },
+        );
+
+      default:
+        return const SizedBox.shrink(); // closed state
     }
   }
 
@@ -266,70 +345,46 @@ class _WorkerActiveTaskScreenState
       left: 0,
       right: 0,
       bottom: 0,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-
-          /// CUSTOMER CARD
-          WorkerCustomerCard(
-            task: controller.task!,
-            distanceKm: controller.distanceKm,
-            etaMinutes: controller.etaMinutes,
+      child: SafeArea(
+        top: false,
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            boxShadow: [
+              BoxShadow(
+                blurRadius: 20,
+                color: Colors.black26,
+              )
+            ],
           ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
 
-          /// STATUS CONTROLLER
-          WorkerTaskStatusWidget(
-            controller: controller,
+              /// 🔹 ICON BAR
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+
+                    _iconButton(Icons.person, 0),
+                    _iconButton(Icons.task_alt, 1),
+                    _iconButton(Icons.navigation, 2),
+
+                  ],
+                ),
+              ),
+
+              /// 🔹 EXPANDABLE CONTENT
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                child: _buildActivePanel(),
+              ),
+            ],
           ),
-
-          /// NAV BAR
-          WorkerNavigationBar(
-            distanceKm: controller.distanceKm,
-            etaMinutes: controller.etaMinutes,
-            onRecenter: () {
-              controller.followingWorker = true;
-
-              if (controller.workerLocation != null) {
-                mapController.move(
-                  controller.workerLocation!,
-                  18,
-                );
-              }
-            },
-            onCancel: () async {
-              final confirm = await showDialog<bool>(
-                context: context,
-                builder: (_) =>
-                    AlertDialog(
-                      title: const Text("Exit Task"),
-                      content: const Text(
-                        "Are you sure you want to leave this task?",
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () =>
-                              Navigator.pop(context, false),
-                          child: const Text("No"),
-                        ),
-                        ElevatedButton(
-                          onPressed: () =>
-                              Navigator.pop(context, true),
-                          child: const Text("Yes"),
-                        ),
-                      ],
-                    ),
-              );
-
-              if (confirm == true) {
-                await controller.cancelTask();
-
-                if (context.mounted) {
-                  Navigator.pop(context);
-                }
-              }
-            },
-          ),
-        ],
+        ),
       ),
     );
   }
