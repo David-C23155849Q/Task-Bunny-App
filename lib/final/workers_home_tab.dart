@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:errand_app/final/worker_components/active_task/worker_active_task_screen.dart';
 import 'package:errand_app/final/worker_components/bids/worker_task_bids_panel.dart';
 import 'package:errand_app/final/worker_components/tasks/task_details_sheet.dart';
 import 'package:errand_app/final/worker_components/tasks/task_model.dart';
@@ -41,6 +42,9 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
   bool _didInitialMove = false;
   bool _followWorker = true;
   bool _hasOpenedActiveTask = false;
+  bool _navigatingToActiveTask = false;
+  bool _hasActiveTask = false;
+
 
   String _workerName = "";
   String? _photoBase64;
@@ -57,7 +61,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
     await _loadWorkerProfile();
     await _startLiveGPS();
 
-    /*_listenForAssignments();*/
+    _listenForAssignments();
   }
 
   /// ---------------- FIRESTORE LOAD ----------------
@@ -258,7 +262,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
   }
 
   /// listen to active task
-  /*void _listenForAssignments() {
+  void _listenForAssignments() {
     final uid = FirebaseAuth.instance.currentUser!.uid;
 
     _workerAssignmentSub?.cancel();
@@ -272,32 +276,45 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
 
       final data = doc.data()!;
 
-      final currentTaskId = data["currentTaskId"];
+      final rawTaskId = data["currentTaskId"];
       final availability = data["availability"];
 
-      // No active task
-      if (currentTaskId == null ||
-          currentTaskId.toString().isEmpty ||
-          availability != "busy") {
+      final currentTaskId =
+      (rawTaskId is String) ? rawTaskId.trim() : null;
+
+      final hasValidTask =
+          currentTaskId != null &&
+              currentTaskId.isNotEmpty &&
+              currentTaskId != "null";
+
+      final isBusy = availability == "busy";
+
+      /// ✅ ONLY NAVIGATE IF BOTH ARE TRUE
+      if (!(hasValidTask && isBusy)) {
+        _navigatingToActiveTask = false;
         _hasOpenedActiveTask = false;
         return;
       }
 
-      // Already opened
-      if (_hasOpenedActiveTask) return;
+      /// prevent duplicate navigation
+      if (_navigatingToActiveTask) return;
 
-      _hasOpenedActiveTask = true;
+      _navigatingToActiveTask = true;
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => WorkerActiveTaskScreen(
-            taskId: currentTaskId,
+      Future.microtask(() {
+        if (!mounted) return;
+
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => WorkerActiveTaskScreen(
+              taskId: currentTaskId!,
+            ),
           ),
-        ),
-      );
+              (route) => false,
+        );
+      });
     });
-  }*/
+  }
 
   @override
   void dispose() {
