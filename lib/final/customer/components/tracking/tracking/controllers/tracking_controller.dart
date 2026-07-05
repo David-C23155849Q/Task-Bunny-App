@@ -7,25 +7,27 @@ import 'package:latlong2/latlong.dart';
 import '../models/tracking_state.dart';
 import '../models/trip_route.dart';
 import '../models/trip_status.dart';
-import '../services/tracking_service.dart';
 import '../services/route_service.dart';
+import '../services/tracking_service.dart';
 
 class TrackingController extends ChangeNotifier {
   final String taskId;
 
-  TrackingController({required this.taskId});
+  TrackingController({
+    required this.taskId,
+  });
 
-  /// Services
+  /// SERVICES
   final TrackingService _trackingService = TrackingService();
   final RouteService _routeService = RouteService();
 
-  /// Map
+  /// MAP
   final MapController mapController = MapController();
 
-  /// Streams
-  StreamSubscription? _trackingSub;
+  /// STREAMS
+  StreamSubscription<TrackingState>? _trackingSub;
 
-  /// State
+  /// STATE
   TrackingState? _state;
 
   TrackingState? get state => _state;
@@ -33,73 +35,108 @@ class TrackingController extends ChangeNotifier {
   bool loading = true;
   bool followWorker = true;
 
-  /// Convenience getters
-  LatLng? get workerLocation => _state?.workerLocation?.position;
-  LatLng? get pickupLocation => _state?.pickupLocation;
-  LatLng? get customerLocation => _state?.customerLocation;
+  /// ---------------- GETTERS ----------------
 
-  TripRoute? get route => _state?.route;
+  LatLng? get workerLocation =>
+      _state?.workerLocation?.position;
 
-  double get distanceKm => _state?.distanceKm ?? 0;
-  String get eta => _state?.eta ?? "--";
-  String get taskStatus => _state?.status.label ?? "Loading";
+  LatLng? get pickupLocation =>
+      _state?.pickupLocation;
 
-  /// ---------------- INIT ----------------
+  LatLng? get customerLocation =>
+      _state?.customerLocation;
+
+  TripRoute? get route =>
+      _state?.route;
+
+  List<LatLng> get polyline =>
+      route?.points ?? [];
+
+  double get distanceKm =>
+      _state?.distanceKm ?? 0;
+
+  String get eta =>
+      _state?.eta ?? "--";
+
+  String get taskStatus =>
+      _state?.status.label ?? "Loading";
+
+  TripStatus get status =>
+      _state?.status ?? TripStatus.assigned;
+
+  bool get hasRoute =>
+      route != null;
+
+  /// Optional worker info (requires TrackingState to expose these fields)
+
+  String get workerName =>
+      _state?.workerName ?? "Worker";
+
+  String get workerPhoto =>
+      _state?.workerPhoto ?? "";
+
+  double get workerRating =>
+      _state?.workerRating ?? 0.0;
+
+  /// ---------------- INITIALIZE ----------------
+
   Future<void> initialize() async {
-    _trackingSub =
-        _trackingService.listenToTask(taskId).listen((newState) async {
-          _state = newState;
+    loading = true;
+    notifyListeners();
 
-          await _updateRouteIfPossible();
-          _updateCamera();
+    _trackingSub?.cancel();
 
-          loading = false;
-          notifyListeners();
-        });
+    _trackingSub = _trackingService
+        .listenToTask(taskId)
+        .listen((newState) async {
+      _state = newState;
+
+      await _updateRouteIfPossible();
+
+      _updateCamera();
+
+      loading = false;
+
+      notifyListeners();
+    });
   }
 
-  /// ---------------- ROUTE UPDATE ----------------
+  /// ---------------- ROUTE ----------------
+
   Future<void> _updateRouteIfPossible() async {
     final worker = workerLocation;
     final pickup = pickupLocation;
 
-    if (worker == null || pickup == null) return;
+    if (worker == null || pickup == null) {
+      return;
+    }
 
-    final route = await _routeService.getRoute(
+    final newRoute = await _routeService.getRoute(
       start: worker,
       end: pickup,
     );
 
-    if (route == null) return;
+    if (newRoute == null) return;
 
     _state = _state!.copyWith(
-      route: route,
-      distanceKm: route.distance / 1000,
-      eta: "${(route.duration / 60).round()} min",
+      route: newRoute,
+      distanceKm: newRoute.distance / 1000,
+      eta: "${(newRoute.duration / 60).round()} min",
     );
   }
 
-  /// ---------------- CAMERA CONTROL ----------------
-  void _updateCamera() {
-    if (!followWorker) return;
+  /// ---------------- CAMERA ----------------
 
-    final worker = workerLocation;
-    if (worker == null) return;
-
-    mapController.move(worker, mapController.camera.zoom);
-  }
-
-  /// ---------------- USER ACTIONS ----------------
-  void toggleFollowWorker() {
-    followWorker = !followWorker;
-    notifyListeners();
-  }
+  void _updateCamera() {}
 
   void centerOnWorker() {
     final worker = workerLocation;
+
     if (worker == null) return;
 
-    mapController.move(worker, 16);
+    try {
+      mapController.move(worker, 16);
+    } catch (_) {}
   }
 
   void resetOverview() {
@@ -108,13 +145,26 @@ class TrackingController extends ChangeNotifier {
 
     if (worker == null || pickup == null) return;
 
-    final lat = (worker.latitude + pickup.latitude) / 2;
-    final lng = (worker.longitude + pickup.longitude) / 2;
+    final center = LatLng(
+      (worker.latitude + pickup.latitude) / 2,
+      (worker.longitude + pickup.longitude) / 2,
+    );
 
-    mapController.move(LatLng(lat, lng), 13);
+    try {
+      mapController.move(center, 13);
+    } catch (_) {}
+  }
+
+  /// ---------------- USER ACTIONS ----------------
+
+  void toggleFollowWorker() {
+    followWorker = !followWorker;
+    notifyListeners();
   }
 
   /// ---------------- DISPOSE ----------------
+
+  @override
   void dispose() {
     _trackingSub?.cancel();
     _trackingService.dispose();

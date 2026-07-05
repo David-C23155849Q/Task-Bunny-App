@@ -3,76 +3,102 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../models/worker_location.dart';
 import '../models/tracking_state.dart';
 import '../models/trip_status.dart';
+import '../models/worker_location.dart';
 
 class TrackingService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  StreamSubscription? _taskSub;
-  StreamSubscription? _workerSub;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _taskSub;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _workerSub;
 
-  /// ---------------- TASK STREAM ----------------
+  TrackingState? _latestState;
+  String? _listeningWorkerId;
+
+  /// -------------------------------------------------
+  /// TASK STREAM
+  /// -------------------------------------------------
   Stream<TrackingState> listenToTask(String taskId) {
     final controller = StreamController<TrackingState>();
 
-    _taskSub = _db.collection("tasks").doc(taskId).snapshots().listen(
-          (doc) async {
-        if (!doc.exists) return;
+    _taskSub?.cancel();
+    _workerSub?.cancel();
 
-        final data = doc.data()!;
+    _taskSub = _db
+        .collection("tasks")
+        .doc(taskId)
+        .snapshots()
+        .listen((taskDoc) {
+      if (!taskDoc.exists) return;
 
-        final workerId = data["assignedWorkerId"];
-        final customerId = data["customerId"];
-        final statusRaw = data["status"] ?? "pending";
+      final data = taskDoc.data()!;
 
-        final status = _parseStatus(statusRaw);
+      final workerId = data["assignedWorkerId"];
+      final customerId = data["customerId"];
 
-        LatLng? pickup;
-        if (data["pickup"] != null) {
-          pickup = LatLng(
-            (data["pickup"]["lat"] as num).toDouble(),
-            (data["pickup"]["lng"] as num).toDouble(),
-          );
-        }
-
-        final state = TrackingState(
-          taskId: taskId,
-          workerId: workerId,
-          customerId: customerId,
-          status: status,
-          pickupLocation: pickup,
+      LatLng? pickupLocation;
+      if (data["pickup"] != null) {
+        pickupLocation = LatLng(
+          (data["pickup"]["lat"] as num).toDouble(),
+          (data["pickup"]["lng"] as num).toDouble(),
         );
+      }
 
-        controller.add(state);
+      LatLng? customerLocation;
+      if (data["customerLocation"] != null) {
+        customerLocation = LatLng(
+          (data["customerLocation"]["lat"] as num).toDouble(),
+          (data["customerLocation"]["lng"] as num).toDouble(),
+        );
+      }
 
-        /// Auto attach worker stream when assigned
-        if (workerId != null) {
-          _listenToWorker(workerId, controller, state);
-        }
-      },
-    );
+      _latestState = (_latestState ??
+          TrackingState(
+            taskId: taskId,
+          ))
+          .copyWith(
+        workerId: workerId,
+        customerId: customerId,
+        pickupLocation: pickupLocation,
+        customerLocation: customerLocation,
+        status: _parseStatus(data["status"] ?? "pending"),
+      );
+
+      controller.add(_latestState!);
+
+      if (workerId != null &&
+          workerId.toString().isNotEmpty &&
+          workerId != _listeningWorkerId) {
+        _listenToWorker(workerId, controller);
+      }
+    });
+
+    controller.onCancel = dispose;
 
     return controller.stream;
   }
 
-  /// ---------------- WORKER STREAM ----------------
+  /// -------------------------------------------------
+  /// WORKER LIVE LOCATION
+  /// -------------------------------------------------
   void _listenToWorker(
       String workerId,
       StreamController<TrackingState> controller,
-      TrackingState currentState,
       ) {
+    _listeningWorkerId = workerId;
+
     _workerSub?.cancel();
 
     _workerSub = _db
         .collection("workers")
         .doc(workerId)
         .snapshots()
-        .listen((doc) {
-      if (!doc.exists) return;
+        .listen((workerDoc) {
+      if (!workerDoc.exists) return;
+      if (_latestState == null) return;
 
-      final data = doc.data()!;
+      final data = workerDoc.data()!;
 
       double? lat;
       double? lng;
@@ -87,43 +113,69 @@ class TrackingService {
 
       if (lat == null || lng == null) return;
 
-      final updatedState = currentState.copyWith(
+      _latestState = _latestState!.copyWith(
         workerLocation: WorkerLocation(
           workerId: workerId,
           position: LatLng(lat, lng),
           timestamp: DateTime.now(),
         ),
+
+        workerName: data["name"] ?? "Worker",
+
+        workerPhoto: data["profileImageBase64"] ?? "",
+
+        workerRating:
+        (data["rating"] as num?)?.toDouble() ?? 0.0,
+
+        workerPhone: data["phone"] ?? "",
       );
 
-      controller.add(updatedState);
+      controller.add(_latestState!);
     });
   }
 
-  /// ---------------- STATUS PARSER ----------------
+  /// -------------------------------------------------
+  /// STATUS PARSER
+  /// -------------------------------------------------
   TripStatus _parseStatus(String raw) {
     switch (raw) {
       case "assigned":
         return TripStatus.assigned;
+
       case "accepted":
         return TripStatus.accepted;
+
       case "enroute":
         return TripStatus.enrouteToPickup;
+
       case "arrived":
         return TripStatus.arrivedAtPickup;
+
       case "picked":
         return TripStatus.pickedUp;
+
       case "completed":
         return TripStatus.completed;
+
       case "cancelled":
         return TripStatus.cancelled;
+
       default:
         return TripStatus.pending;
     }
   }
 
-  /// ---------------- DISPOSE ----------------
+  /// -------------------------------------------------
+  /// DISPOSE
+  /// -------------------------------------------------
   void dispose() {
     _taskSub?.cancel();
     _workerSub?.cancel();
+
+    _taskSub = null;
+    _workerSub = null;
+
+    _latestState = null;
+    _listeningWorkerId = null;
   }
 }

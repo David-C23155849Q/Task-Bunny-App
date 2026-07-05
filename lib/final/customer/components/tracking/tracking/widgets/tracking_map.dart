@@ -18,48 +18,57 @@ class TrackingMap extends StatefulWidget {
 }
 
 class _TrackingMapState extends State<TrackingMap> {
-  MapController get _map => widget.controller.mapController;
-
-  bool _hasCenteredOnce = false;
+  bool _centeredOnce = false;
 
   @override
   void initState() {
     super.initState();
-
-    /// listen to controller updates
-    widget.controller.addListener(_onUpdate);
+    widget.controller.addListener(_onControllerChanged);
   }
 
   @override
   void dispose() {
-    widget.controller.removeListener(_onUpdate);
+    widget.controller.removeListener(_onControllerChanged);
     super.dispose();
   }
 
-  void _onUpdate() {
+  void _onControllerChanged() {
+    if (!mounted) return;
+
     final worker = widget.controller.workerLocation;
-    final pickup = widget.controller.pickupLocation;
 
-    if (worker == null) return;
-
-    /// 🔥 FIX 1: Prevent ocean bug (0,0 crash)
-    if (worker.latitude == 0 && worker.longitude == 0) return;
-
-    /// 🔥 FIX 2: Initial safe center
-    if (!_hasCenteredOnce) {
-      _hasCenteredOnce = true;
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _map.move(worker, 16);
-      });
-
+    if (worker == null) {
+      setState(() {});
       return;
     }
 
-    /// 🔥 FIX 3: Follow mode (smooth tracking)
-    if (widget.controller.followWorker) {
-      _map.move(worker, _map.camera.zoom);
+    if (worker.latitude == 0 && worker.longitude == 0) {
+      setState(() {});
+      return;
     }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      try {
+        if (!_centeredOnce) {
+          _centeredOnce = true;
+
+          widget.controller.mapController.move(
+            worker,
+            16,
+          );
+        } else if (widget.controller.followWorker) {
+          widget.controller.mapController.move(
+            worker,
+            16,
+            id: "tracking",
+          );
+        }
+      } catch (_) {
+        // Map isn't attached yet.
+      }
+    });
 
     setState(() {});
   }
@@ -78,46 +87,51 @@ class _TrackingMapState extends State<TrackingMap> {
       options: MapOptions(
         initialCenter: worker ??
             pickup ??
-            const LatLng(-17.8292, 31.0522), // fallback (Harare safe center)
+            const LatLng(
+              -17.8292,
+              31.0522,
+            ),
+        initialZoom: 16,
 
-        initialZoom: 15,
+        onMapReady: () {
+          if (!_centeredOnce && worker != null) {
+            _centeredOnce = true;
 
-        onPositionChanged: (pos, hasGesture) {
-          /// user moved map manually → disable follow
+            controller.mapController.move(worker, 16);
+          }
+        },
+
+        onPositionChanged: (position, hasGesture) {
           if (hasGesture) {
             controller.followWorker = false;
           }
         },
       ),
       children: [
-        /// BASE MAP
         TileLayer(
           urlTemplate:
           "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
           userAgentPackageName: "com.task.bunnyapp",
         ),
 
-        /// ROUTE POLYLINE
         if (route != null)
           PolylineLayer(
             polylines: [
               Polyline(
                 points: route.points,
-                strokeWidth: 5,
+                strokeWidth: 6,
                 color: Colors.blue,
               ),
             ],
           ),
 
-        /// MARKERS
         MarkerLayer(
           markers: [
-            /// WORKER
             if (worker != null)
               Marker(
                 point: worker,
-                width: 55,
-                height: 55,
+                width: 60,
+                height: 60,
                 child: const Icon(
                   Icons.delivery_dining,
                   color: Colors.green,
@@ -125,12 +139,11 @@ class _TrackingMapState extends State<TrackingMap> {
                 ),
               ),
 
-            /// PICKUP
             if (pickup != null)
               Marker(
                 point: pickup,
-                width: 55,
-                height: 55,
+                width: 60,
+                height: 60,
                 child: const Icon(
                   Icons.location_pin,
                   color: Colors.red,
@@ -138,7 +151,6 @@ class _TrackingMapState extends State<TrackingMap> {
                 ),
               ),
 
-            /// CUSTOMER
             if (customer != null)
               Marker(
                 point: customer,
@@ -147,13 +159,12 @@ class _TrackingMapState extends State<TrackingMap> {
                 child: const Icon(
                   Icons.home,
                   color: Colors.orange,
-                  size: 38,
+                  size: 36,
                 ),
               ),
           ],
         ),
 
-        /// MY LOCATION DOT (optional system GPS layer)
         CurrentLocationLayer(),
       ],
     );

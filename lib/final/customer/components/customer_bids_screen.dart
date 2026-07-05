@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:errand_app/final/customer/components/tracking/tracking/customer_tracking_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -39,11 +40,18 @@ class CustomerBidsPanel extends StatelessWidget {
 
     final bidsRef = taskRef.collection("bids");
 
+    final acceptedBid = await bidsRef.doc(bidId).get();
+    final bidData = acceptedBid.data() as Map<String, dynamic>;
+    final acceptedPrice = bidData["amount"];
+
     final batch = FirebaseFirestore.instance.batch();
 
     batch.update(taskRef, {
       "assignedWorkerId": workerId,
+      "winningBidId": bidId,
+      "acceptedPrice": acceptedPrice,
       "status": "assigned",
+      "assignedAt": FieldValue.serverTimestamp(),
     });
 
     final bidsSnap = await bidsRef.get();
@@ -54,15 +62,31 @@ class CustomerBidsPanel extends StatelessWidget {
       });
     }
 
+    final workerRef =
+    FirebaseFirestore.instance.collection("workers").doc(workerId);
+
+    batch.update(workerRef, {
+      "availability": "busy",
+      "currentTaskId": taskId,
+    });
+
     await batch.commit();
 
-    if (context.mounted) {
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Worker assigned successfully")),
+    if (!context.mounted) return;
+
+    //  IMPORTANT: avoid pop + pushReplacement conflict
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.mounted) return;
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => CustomerTrackingScreen(taskId: taskId),
+        ),
+            (route) => false,
       );
-    }
+    });
   }
+
 
   /// ---------------- CANCEL TASK ----------------
   Future<void> _cancelTask(BuildContext context) async {

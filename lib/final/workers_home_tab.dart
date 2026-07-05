@@ -35,10 +35,12 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
 
   StreamSubscription? _taskSub;
   StreamSubscription<Position>? _posSub;
+  StreamSubscription<DocumentSnapshot>? _workerAssignmentSub;
 
   bool _loading = true;
   bool _didInitialMove = false;
   bool _followWorker = true;
+  bool _hasOpenedActiveTask = false;
 
   String _workerName = "";
   String? _photoBase64;
@@ -53,7 +55,9 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
   Future<void> _init() async {
     await _loadWorkerData();
     await _loadWorkerProfile();
-    await _startLiveGPS(); // must set _workerLocation
+    await _startLiveGPS();
+
+    /*_listenForAssignments();*/
   }
 
   /// ---------------- FIRESTORE LOAD ----------------
@@ -253,10 +257,53 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
     });
   }
 
+  /// listen to active task
+  /*void _listenForAssignments() {
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+
+    _workerAssignmentSub?.cancel();
+
+    _workerAssignmentSub = FirebaseFirestore.instance
+        .collection("workers")
+        .doc(uid)
+        .snapshots()
+        .listen((doc) {
+      if (!mounted || !doc.exists) return;
+
+      final data = doc.data()!;
+
+      final currentTaskId = data["currentTaskId"];
+      final availability = data["availability"];
+
+      // No active task
+      if (currentTaskId == null ||
+          currentTaskId.toString().isEmpty ||
+          availability != "busy") {
+        _hasOpenedActiveTask = false;
+        return;
+      }
+
+      // Already opened
+      if (_hasOpenedActiveTask) return;
+
+      _hasOpenedActiveTask = true;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => WorkerActiveTaskScreen(
+            taskId: currentTaskId,
+          ),
+        ),
+      );
+    });
+  }*/
+
   @override
   void dispose() {
     _taskSub?.cancel();
     _posSub?.cancel();
+    _workerAssignmentSub?.cancel();
     super.dispose();
   }
 
